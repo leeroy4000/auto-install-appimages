@@ -1,41 +1,41 @@
 # AppImage Auto-Installer
 
-This repository contains a small utility script that finds AppImage files in `~/Applications`, extracts icons and metadata, and installs desktop entries into `~/.local/share/applications`.
+A Bash utility that automatically installs AppImage files from your `~/Applications` directory by creating desktop entries and extracting icons.
 
-Files
-- `auto-install-appimages.sh` — the installer script (executable).
+## What It Does
 
-Usage
+This script scans `~/Applications` for AppImage files and: 
+- Extracts application icons and metadata from each AppImage
+- Creates desktop entries in `~/.local/share/applications`
+- Copies icons to `~/.local/share/pixmaps`
+- Skips AppImages that are already installed (unless forced)
+
+## Requirements
+
+- Bash shell (uses `mapfile` and `mktemp`)
+- AppImage files in `~/Applications`
+
+## Usage
 
 ```bash
-# Run normally (skips already-installed entries):
+# Install all new AppImages
 ./auto-install-appimages.sh
 
-# Force reinstall all AppImages:
+# Force reinstall all AppImages (overwrites existing entries)
 ./auto-install-appimages.sh --force
 ```
 
-Notes
-- The script expects Bash and uses `mapfile` and `mktemp` — it is not POSIX sh.
-- It will create desktop entries and copy icons to `~/.local/share/pixmaps`.
+## Installation
 
-Push to a private GitHub repo
+1. Clone this repository or download `auto-install-appimages. sh`
+2. Make the script executable: 
+   ```bash
+   chmod +x auto-install-appimages.sh
+   ```
+3. Run the script whenever you add new AppImages to `~/Applications`
 
-Option A: create repo on GitHub website, then push:
+## Notes
 
-```bash
-cd ~/auto-install-appimages
-git remote add origin git@github.com:<your-username>/auto-install-appimages.git
-git branch -M main
-git push -u origin main
-```
-
-Option B: use GitHub CLI (`gh`):
-
-```bash
-cd ~/auto-install-appimages
-# creates a private repo and pushes current branch
-gh repo create auto-install-appimages --private --source=. --remote=origin --push
-```
-
-If you want, I can create the private repo for you with `gh` (requires authentication).
+- Desktop entries will appear in your application menu after installation
+- The script is idempotent—running it multiple times won't create duplicates unless you use `--force`
+- If an AppImage is updated, use `--force` to refresh its desktop entry
