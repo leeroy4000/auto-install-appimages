@@ -1,14 +1,7 @@
 #!/bin/bash
 
-# Script copied from /usr/local/bin/auto-install-appimages.sh
-# Linted and adjusted by assistant
-
 set -euo pipefail
 IFS=$'\n\t'
-
-# Original script content
-
-#!/bin/bash
 
 # Script to automatically install all AppImages in ~/Applications folder
 # Checks if they already have desktop entries and only installs if missing
