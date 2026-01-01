@@ -1,0 +1,7 @@
+# Ignore local editor and system files
+*.swp
+*.swo
+.DS_Store
+
+# Ignore any local test output
+/tmp
