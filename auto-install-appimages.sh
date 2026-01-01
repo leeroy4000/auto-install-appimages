@@ -1,11 +1,11 @@
+# Script to automatically install all AppImages in ~/Applications folder
+# Checks if they already have desktop entries and only installs if missing
+# Usage: auto-install-appimages.sh [--force|-f]
+
 #!/bin/bash
 
 set -euo pipefail
 IFS=$'\n\t'
-
-# Script to automatically install all AppImages in ~/Applications folder
-# Checks if they already have desktop entries and only installs if missing
-# Usage: auto-install-appimages.sh [--force|-f]
 
 # Check for force flag
 FORCE_INSTALL=false
