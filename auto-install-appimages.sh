@@ -9,7 +9,7 @@ IFS=$'\n\t'
 
 # Check for force flag
 FORCE_INSTALL=false
-if [ "$1" = "--force" ] || [ "$1" = "-f" ]; then
+if [ "${1:-}" = "--force" ] || [ "${1:-}" = "-f" ]; then
     FORCE_INSTALL=true
 fi
 
