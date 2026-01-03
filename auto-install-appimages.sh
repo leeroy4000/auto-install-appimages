@@ -1,10 +1,10 @@
+#!/bin/bash
+
 # Script to automatically install all AppImages in ~/Applications folder
 # Checks if they already have desktop entries and only installs if missing
 # Usage: auto-install-appimages.sh [--force|-f]
 
-#!/bin/bash
-
-set -euo pipefail
+set -e
 IFS=$'\n\t'
 
 # Check for force flag
@@ -136,15 +136,23 @@ install_appimage() {
     local app_name="$2"
     local identifier="$3"
     
-    echo -e "${GREEN}Installing:   $app_name${NC}"
+    echo -e "${GREEN}Installing:    $app_name${NC}"
     
     # Make sure it's executable
-    chmod +x "$appimage_path"
+    chmod +x "$appimage_path" || {
+        echo -e "  ${RED}✗ Failed to make executable${NC}"
+        return 1
+    }
     
     # Extract AppImage to get icon
     echo "  → Extracting AppImage..."
     TEMP_DIR=$(mktemp -d)
-    cd "$TEMP_DIR" || { echo "Failed to enter temp dir $TEMP_DIR"; exit 1; }
+    
+    if ! cd "$TEMP_DIR"; then
+        echo -e "  ${RED}✗ Failed to enter temp dir${NC}"
+        rm -rf "$TEMP_DIR" 2>/dev/null || true
+        return 1
+    fi
     
     # Try to extract (some AppImages might fail, handle gracefully)
     if "$appimage_path" --appimage-extract > /dev/null 2>&1; then
@@ -184,7 +192,7 @@ install_appimage() {
         
         # 4. Look for any PNG
         if [ "$ICON_FOUND" = false ]; then
-            icon=$(find squashfs-root -type f -name "*.png" 2>/dev/null | head -1)
+            icon=$(find squashfs-root -type f -name "*. png" 2>/dev/null | head -1)
             if [ -n "$icon" ] && [ -f "$icon" ]; then
                 ICON_PATH="$icon"
                 ICON_FOUND=true
@@ -204,7 +212,7 @@ install_appimage() {
         
         # Try to find StartupWMClass from extracted desktop file
         STARTUP_WM_CLASS=""
-        EXTRACTED_DESKTOP=$(find squashfs-root -name "*.desktop" -type f | head -1)
+        EXTRACTED_DESKTOP=$(find squashfs-root -name "*. desktop" -type f 2>/dev/null | head -1)
         if [ -n "$EXTRACTED_DESKTOP" ]; then
             STARTUP_WM_CLASS=$(grep "^StartupWMClass=" "$EXTRACTED_DESKTOP" 2>/dev/null | cut -d= -f2)
         fi
@@ -215,8 +223,8 @@ install_appimage() {
     fi
     
     # Clean up extraction
-    cd ~ || true
-    rm -rf "$TEMP_DIR"
+    cd "$HOME" || cd ~ || true
+    rm -rf "$TEMP_DIR" 2>/dev/null || true
     
     # Guess categories
     CATEGORIES=$(guess_categories "$app_name")
@@ -239,7 +247,7 @@ EOF
     # Add StartupWMClass if found
     if [ -n "$STARTUP_WM_CLASS" ]; then
         echo "StartupWMClass=$STARTUP_WM_CLASS" >> "$DESKTOP_FILE"
-        echo "  → Added StartupWMClass: $STARTUP_WM_CLASS"
+        echo "  → Added StartupWMClass:  $STARTUP_WM_CLASS"
     fi
 
     # Add MIME types for known apps
@@ -259,11 +267,13 @@ EOF
     
     echo -e "  ${GREEN}✓ Installed${NC}"
     echo ""
+    return 0
 }
 
 # Process each AppImage
 INSTALLED_COUNT=0
 SKIPPED_COUNT=0
+FAILED_COUNT=0
 
 for appimage in "${APPIMAGES[@]}"; do
     app_name=$(get_app_name "$appimage")
@@ -271,17 +281,22 @@ for appimage in "${APPIMAGES[@]}"; do
     
     if [ "$FORCE_INSTALL" = false ] && desktop_entry_exists "$appimage" "$identifier"; then
         echo -e "${BLUE}⊙ $app_name${NC} - already installed, skipping"
-        ((SKIPPED_COUNT++))
+        SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
     else
-        install_appimage "$appimage" "$app_name" "$identifier"
-        ((INSTALLED_COUNT++))
+        if install_appimage "$appimage" "$app_name" "$identifier"; then
+            INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
+        else
+            echo -e "${RED}✗ Failed to install $app_name${NC}"
+            echo ""
+            FAILED_COUNT=$((FAILED_COUNT + 1))
+        fi
     fi
 done
 
 # Update desktop database
 if [ $INSTALLED_COUNT -gt 0 ]; then
     echo -e "${BLUE}Updating desktop database...${NC}"
-    update-desktop-database "$DESKTOP_DIR"
+    update-desktop-database "$DESKTOP_DIR" 2>/dev/null || true
     
     # Update icon cache if possible
     if command -v gtk-update-icon-cache &> /dev/null; then
@@ -294,10 +309,13 @@ echo ""
 echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║  Summary                               ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════╝${NC}"
-echo -e "${GREEN}✓ Installed:    $INSTALLED_COUNT${NC}"
-echo -e "${BLUE}⊙ Skipped:     $SKIPPED_COUNT${NC}"
-echo -e "${BLUE}═ Total:       ${#APPIMAGES[@]}${NC}"
+echo -e "${GREEN}✓ Installed:      $INSTALLED_COUNT${NC}"
+if [ $FAILED_COUNT -gt 0 ]; then
+    echo -e "${RED}✗ Failed:        $FAILED_COUNT${NC}"
+fi
+echo -e "${BLUE}⊙ Skipped:       $SKIPPED_COUNT${NC}"
+echo -e "${BLUE}═ Total:         ${#APPIMAGES[@]}${NC}"
 echo ""
 
 echo -e "${GREEN}Applications should now appear in your menu! ${NC}"
-echo -e "${BLUE}You may need to wait a moment or reload your menu.${NC}"
+echo -e "${BLUE}You may need to wait a moment or reload your menu. ${NC}"
